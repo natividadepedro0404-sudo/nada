@@ -3,6 +3,7 @@ import time
 import requests
 import webbrowser
 from threading import Timer
+from datetime import datetime, timezone
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 from supabase import create_client, Client
 from checker_service import DominosChecker
@@ -158,7 +159,7 @@ def create_deposit():
             "status": "pending",
             "misticpay_id": db_id,
             "pix_id": pix_code,
-            "created_at": time.time()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
         supabase.table('payments').insert(payment_data).execute()
         
@@ -224,7 +225,7 @@ def handle_misticpay_webhook():
             # Atualizar status do pagamento
             supabase.table('payments').update({
                 'status': 'completed',
-                'completed_at': time.time()
+                'completed_at': datetime.now(timezone.utc).isoformat()
             }).eq('id', payment_record['id']).execute()
             
             # Atualizar saldo do usuário
@@ -240,7 +241,7 @@ def handle_misticpay_webhook():
             # Marcar como falha
             supabase.table('payments').update({
                 'status': 'failed',
-                'failed_at': time.time()
+                'failed_at': datetime.now(timezone.utc).isoformat()
             }).eq('id', payment_record['id']).execute()
             print(f"[WEBHOOK] Pagamento marcado como falha")
             return jsonify({"success": True, "message": "Pagamento falhou"}), 200
