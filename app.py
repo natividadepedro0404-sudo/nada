@@ -117,18 +117,38 @@ def create_deposit():
         if res.status_code not in [200, 201]:
             return jsonify({"success": False, "message": f"Erro Misticpay: {res.text}"}), 400
             
-        mistic_data = res.json().get('data', {})
+        response_data = res.json()
         
-        # Extract keys based on common formats
-        pix_code = mistic_data.get('pixCopiaECola') or mistic_data.get('qrCode') or mistic_data.get('pixCode', '')
+        # Debug: log da resposta para ajudar a identificar a estrutura
+        print(f"[DEBUG] Misticpay Response: {response_data}")
+        
+        # Extrair dados da resposta corretamente
+        mistic_data = response_data.get('data', response_data)
+        
+        # PIX Copia e Cola - procurar pelas chaves conhecidas
+        pix_code = (
+            mistic_data.get('copyPaste') or 
+            mistic_data.get('pixCopiaECola') or 
+            mistic_data.get('pix') or
+            mistic_data.get('qrCode') or 
+            mistic_data.get('pixCode', '')
+        )
+        
+        # QR Code - extrair a URL ou gerar a partir do PIX
+        qr_code_url = (
+            mistic_data.get('qrcodeUrl') or 
+            mistic_data.get('qrCodeUrl') or 
+            mistic_data.get('qrcodeImage', '')
+        )
+        
+        # Se temos o PIX mas não temos QR code URL, gerar um
+        if pix_code and not qr_code_url:
+            qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={pix_code}"
+        
+        # Se não temos PIX, retornar erro
         if not pix_code:
-            # Maybe the whole response is just the string if it's badly formatted?
-            pix_raw = res.text
-            import re
-            match = re.search(r'000201.*', pix_raw)
-            pix_code = match.group(0) if match else "Erro ao ler PIX da resposta"
-            
-        qr_code_url = mistic_data.get('qrCodeUrl') or mistic_data.get('qrcodeImage') or f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={pix_code}"
+            return jsonify({"success": False, "message": "PIX não gerado pela Misticpay. Verifique as credenciais."}), 400
+        
         db_id = mistic_data.get('transactionId', transaction_id)
         
         # Save to Supabase payments table
@@ -137,7 +157,8 @@ def create_deposit():
             "amount": amount,
             "status": "pending",
             "misticpay_id": db_id,
-            "pix_id": db_id
+            "pix_id": pix_code,
+            "created_at": time.time()
         }
         supabase.table('payments').insert(payment_data).execute()
         
@@ -146,7 +167,7 @@ def create_deposit():
             "message": "PIX gerado com sucesso!",
             "pix_code": pix_code,
             "qr_code_url": qr_code_url,
-            "db_id": db_id,
+            "transaction_id": db_id,
             "amount": amount
         })
     except Exception as e:
@@ -176,37 +197,60 @@ def handle_misticpay_webhook():
         status = webhook_data.get('status')
         value = webhook_data.get('value', 0)
         
+        print(f"[WEBHOOK] Recebido: transactionId={transaction_id}, status={status}, value={value}")
+        
         if not transaction_id or not status:
+            print("[WEBHOOK] Dados inválidos recebidos")
             return jsonify({"success": False, "message": "Dados inválidos"}), 400
         
-        # Find the payment in the database
+        # Buscar o pagamento no banco
         payment = supabase.table('payments').select('*').eq('misticpay_id', str(transaction_id)).execute()
+        
         if not payment.data:
+            # Tentar buscar pelo pix_id também
+            payment = supabase.table('payments').select('*').eq('pix_id', str(transaction_id)).execute()
+        
+        if not payment.data:
+            print(f"[WEBHOOK] Pagamento não encontrado para transaction_id: {transaction_id}")
             return jsonify({"success": False, "message": "Pagamento não encontrado"}), 404
         
         payment_record = payment.data[0]
         user_id = payment_record['user_id']
         amount = payment_record['amount']
         
+        print(f"[WEBHOOK] Pagamento encontrado: user_id={user_id}, amount={amount}")
+        
         if status == "COMPLETO":
-            # Update payment status
-            supabase.table('payments').update({'status': 'completed'}).eq('misticpay_id', str(transaction_id)).execute()
+            # Atualizar status do pagamento
+            supabase.table('payments').update({
+                'status': 'completed',
+                'completed_at': time.time()
+            }).eq('id', payment_record['id']).execute()
             
-            # Update user balance
-            profile = supabase.table('profiles').select('balance').eq('id', user_id).execute().data[0]
-            new_balance = float(profile['balance']) + amount
-            supabase.table('profiles').update({'balance': new_balance}).eq('id', user_id).execute()
+            # Atualizar saldo do usuário
+            profile = supabase.table('profiles').select('balance').eq('id', user_id).execute()
+            if profile.data:
+                current_balance = float(profile.data[0]['balance'])
+                new_balance = current_balance + amount
+                supabase.table('profiles').update({'balance': new_balance}).eq('id', user_id).execute()
+                print(f"[WEBHOOK] Saldo atualizado: {current_balance} -> {new_balance}")
             
             return jsonify({"success": True, "message": "Pagamento processado com sucesso"}), 200
         elif status == "FALHA":
-            # Update payment status to failed
-            supabase.table('payments').update({'status': 'failed'}).eq('misticpay_id', str(transaction_id)).execute()
+            # Marcar como falha
+            supabase.table('payments').update({
+                'status': 'failed',
+                'failed_at': time.time()
+            }).eq('id', payment_record['id']).execute()
+            print(f"[WEBHOOK] Pagamento marcado como falha")
             return jsonify({"success": True, "message": "Pagamento falhou"}), 200
         else:
-            # For other statuses like PENDENTE, just acknowledge
+            # Outros status
+            print(f"[WEBHOOK] Status {status} recebido, apenas acknowlegding")
             return jsonify({"success": True, "message": f"Status atualizado: {status}"}), 200
             
     except Exception as e:
+        print(f"[WEBHOOK] Erro: {str(e)}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/check_card', methods=['POST'])
