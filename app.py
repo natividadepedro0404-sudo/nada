@@ -108,7 +108,7 @@ def create_deposit():
             "payerDocument": "00000000000",
             "transactionId": transaction_id,
             "description": "Adicionar Saldo",
-            "projectWebhook": os.environ.get("WEBHOOK_URL", "https://nada-five-nu.vercel.app/api/webhook/misticpay")
+            "projectWebhook": os.environ.get("WEBHOOK_URL", "https://checker-db9i.onrender.com/api/webhook/misticpay")
         }
         
         url = f"{MISTICPAY_API_URL}/transactions/create"
@@ -246,5 +246,5 @@ def open_browser():
     webbrowser.open_new('http://127.0.0.1:5000/')
 
 if __name__ == '__main__':
-    Timer(1.5, open_browser).start()
-    app.run(port=5000, debug=True, use_reloader=False)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
