@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CC Checker - Authenticate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .input-glass {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+        .input-glass:focus {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+            outline: none;
+        }
+        .btn-primary {
+            background: linear-gradient(to right, #8b5cf6, #6d28d9);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(139, 92, 246, 0.4);
+        }
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4 relative overflow-hidden">
+    <!-- Background Decoration -->
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-20"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-20"></div>
+
+    <div class="glass-panel rounded-2xl w-full max-w-md p-8 relative z-10 mx-auto">
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-gradient-to-tr from-purple-500 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-purple-500/30">
+                <i class="fa-solid fa-shield-halved text-2xl text-white"></i>
+            </div>
+            <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-300">CC Checker Pro</h1>
+            <p class="text-slate-400 mt-2 text-sm" id="subtitle">Acesse sua conta para continuar</p>
+        </div>
+
+        <form id="authForm" class="space-y-5">
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Email</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-regular fa-envelope text-slate-500"></i>
+                    </div>
+                    <input type="email" id="email" required class="input-glass w-full pl-10 pr-3 py-2.5 rounded-lg text-white placeholder-slate-500" placeholder="seu@email.com">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Senha</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-lock text-slate-500"></i>
+                    </div>
+                    <input type="password" id="password" required class="input-glass w-full pl-10 pr-3 py-2.5 rounded-lg text-white placeholder-slate-500" placeholder="••••••••">
+                </div>
+            </div>
+
+            <div id="errorMsg" class="hidden bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-lg text-center"></div>
+            <div id="successMsg" class="hidden bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm p-3 rounded-lg text-center"></div>
+
+            <button type="submit" id="submitBtn" class="btn-primary w-full py-3 rounded-lg font-medium text-white shadow-lg flex justify-center items-center gap-2">
+                <span id="btnText">Entrar</span>
+                <i class="fa-solid fa-arrow-right-to-bracket" id="btnIcon"></i>
+                <i class="fa-solid fa-circle-notch spinner hidden" id="btnSpinner"></i>
+            </button>
+        </form>
+
+        <div class="mt-6 text-center">
+            <button id="toggleModeBtn" class="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors">
+                Não tem uma conta? Registre-se
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let isLogin = true;
+
+        document.getElementById('toggleModeBtn').addEventListener('click', () => {
+            isLogin = !isLogin;
+            document.getElementById('subtitle').textContent = isLogin ? 'Acesse sua conta para continuar' : 'Crie sua conta para começar';
+            document.getElementById('btnText').textContent = isLogin ? 'Entrar' : 'Registrar';
+            document.getElementById('btnIcon').className = isLogin ? 'fa-solid fa-arrow-right-to-bracket' : 'fa-solid fa-user-plus';
+            document.getElementById('toggleModeBtn').textContent = isLogin ? 'Não tem uma conta? Registre-se' : 'Já tem uma conta? Entre';
+            hideMessages();
+        });
+
+        function hideMessages() {
+            document.getElementById('errorMsg').classList.add('hidden');
+            document.getElementById('successMsg').classList.add('hidden');
+        }
+
+        function showMessage(type, text) {
+            hideMessages();
+            const el = document.getElementById(type === 'error' ? 'errorMsg' : 'successMsg');
+            el.textContent = text;
+            el.classList.remove('hidden');
+        }
+
+        function toggleLoading(isLoading) {
+            const btnText = document.getElementById('btnText');
+            const btnIcon = document.getElementById('btnIcon');
+            const btnSpinner = document.getElementById('btnSpinner');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (isLoading) {
+                btnText.classList.add('hidden');
+                btnIcon.classList.add('hidden');
+                btnSpinner.classList.remove('hidden');
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-70');
+            } else {
+                btnText.classList.remove('hidden');
+                btnIcon.classList.remove('hidden');
+                btnSpinner.classList.add('hidden');
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-70');
+            }
+        }
+
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            toggleLoading(true);
+            const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('success', data.message);
+                    if (isLogin) {
+                        setTimeout(() => window.location.href = '/', 1000);
+                    } else {
+                        setTimeout(() => {
+                            isLogin = true;
+                            document.getElementById('toggleModeBtn').click(); // Volta para login false -> true click volta pra false, entao forço manual:
+                            isLogin = true;
+                            document.getElementById('subtitle').textContent = 'Acesse sua conta para continuar';
+                            document.getElementById('btnText').textContent = 'Entrar';
+                            document.getElementById('btnIcon').className = 'fa-solid fa-arrow-right-to-bracket';
+                            document.getElementById('toggleModeBtn').textContent = 'Não tem uma conta? Registre-se';
+                            hideMessages();
+                            showMessage('success', 'Registro concluído! Faça seu login.');
+                        }, 1500);
+                    }
+                } else {
+                    showMessage('error', data.message || 'Erro de autenticação');
+                }
+            } catch (err) {
+                showMessage('error', 'Erro de conexão com o servidor');
+            } finally {
+                toggleLoading(false);
+            }
+        });
+    </script>
+</body>
+</html>

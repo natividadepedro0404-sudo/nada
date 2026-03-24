@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CC Checker Pro - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+        .glass-input {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        .glass-input:focus {
+            border-color: #8b5cf6;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+        }
+        .btn-primary {
+            background: linear-gradient(to right, #8b5cf6, #6d28d9);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(139, 92, 246, 0.4);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-outline {
+            border: 1px solid rgba(139, 92, 246, 0.5);
+            color: #c4b5fd;
+            transition: all 0.3s ease;
+        }
+        .btn-outline:hover {
+            background: rgba(139, 92, 246, 0.1);
+        }
+        .log-box {
+            font-family: monospace;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255,255,255,0.05);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .live-text { color: #4ade80; }
+        .die-text { color: #f87171; }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 50;
+            align-items: center; justify-content: center;
+        }
+        .modal.active { display: flex; }
+    </style>
+</head>
+<body class="pb-12 text-slate-200">
+    <!-- Navbar -->
+    <nav class="glass-panel sticky top-0 z-40 border-b border-white/5 py-4">
+        <div class="max-w-6xl mx-auto px-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-tr from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                    <i class="fa-solid fa-shield-halved text-white"></i>
+                </div>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-300">CC Checker</h1>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="text-right">
+                    <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Saldo Atual</p>
+                    <p class="text-lg font-bold text-emerald-400" id="balanceDisplay">R$ 0.00</p>
+                </div>
+                <button onclick="openDepositModal()" class="btn-primary px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2">
+                    <i class="fa-brands fa-pix"></i> Adicionar
+                </button>
+                <button id="logoutBtn" class="text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-6xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left Column: Checker Control -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="glass-panel p-6 rounded-2xl">
+                <h2 class="text-lg font-semibold flex items-center gap-2 mb-4">
+                    <i class="fa-solid fa-credit-card text-purple-400"></i> Interface do Checker
+                </h2>
+                <p class="text-sm text-slate-400 mb-4">Insira um cartão por linha no formato: <code>numero|mes|ano|cvv</code>. Cada cartão "LIVE" custa R$ 1,00.</p>
+                
+                <textarea id="cardInput" rows="8" class="glass-input w-full rounded-xl p-4 text-sm resize-none mb-4" placeholder="4000000000000000|01|2028|123..."></textarea>
+                
+                <div class="flex justify-between items-center">
+                    <div class="text-sm text-slate-400">
+                        Total de linhas: <span id="linesCount" class="text-white font-mono">0</span>
+                    </div>
+                    <button id="startBtn" class="btn-primary px-8 py-3 rounded-xl font-semibold flex items-center gap-2 shadow-lg shadow-purple-500/20">
+                        <i class="fa-solid fa-play"></i> Iniciar Check
+                    </button>
+                    <button id="stopBtn" class="bg-red-500/20 text-red-500 hover:bg-red-500/30 px-8 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors hidden">
+                        <i class="fa-solid fa-stop"></i> Parar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Stats -->
+            <div class="grid grid-cols-3 gap-4">
+                <div class="glass-panel p-4 rounded-xl text-center">
+                    <p class="text-emerald-400 text-2xl font-bold font-mono" id="statLive">0</p>
+                    <p class="text-xs text-slate-400 uppercase tracking-widest mt-1">Lives</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl text-center">
+                    <p class="text-red-400 text-2xl font-bold font-mono" id="statDie">0</p>
+                    <p class="text-xs text-slate-400 uppercase tracking-widest mt-1">Dies</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl text-center">
+                    <p class="text-slate-200 text-2xl font-bold font-mono" id="statTested">0</p>
+                    <p class="text-xs text-slate-400 uppercase tracking-widest mt-1">Testados</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Live Logs -->
+        <div class="lg:col-span-1">
+            <div class="glass-panel rounded-2xl h-full flex flex-col overflow-hidden">
+                <div class="p-4 border-b border-white/5 bg-white/5 flex justify-between items-center">
+                    <h3 class="font-semibold text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-terminal text-indigo-400"></i> Output Log
+                    </h3>
+                    <button onclick="document.getElementById('logsPanel').innerHTML=''" class="text-xs text-slate-500 hover:text-slate-300">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+                <div id="logsPanel" class="p-4 log-box flex-grow text-xs space-y-2">
+                    <div class="text-slate-500">Aguardando cartões...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deposit Modal -->
+    <div id="depositModal" class="modal">
+        <div class="glass-panel rounded-2xl w-full max-w-sm p-6 relative">
+            <button onclick="closeDepositModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <h2 class="text-xl font-bold mb-2 flex items-center gap-2">
+                <i class="fa-brands fa-pix text-emerald-400"></i> Adicionar Saldo
+            </h2>
+            <p class="text-sm text-slate-400 mb-6">Mínimo R$ 10,00 - Máximo R$ 300,00</p>
+            
+            <div id="pixForm" class="space-y-4">
+                <div class="relative">
+                    <span class="absolute left-3 top-3 text-slate-400 font-medium">R$</span>
+                    <input type="number" id="depositAmount" min="10" max="300" class="glass-input w-full pl-10 pr-4 py-3 rounded-xl" placeholder="50.00">
+                </div>
+                <button onclick="generatePix()" class="btn-primary w-full py-3 rounded-xl font-semibold shadow-lg shadow-purple-500/20">
+                    Gerar Pix
+                </button>
+            </div>
+
+            <!-- Payment view -->
+            <div id="pixResult" class="hidden flex flex-col items-center mt-4">
+                <div class="bg-white p-2 rounded-xl mb-4">
+                    <img id="qrCodeImg" src="" alt="QR Code" class="w-48 h-48 rounded-lg">
+                </div>
+                <p class="text-xs text-slate-400 mb-2">Pix Copia e Cola:</p>
+                <div class="flex w-full gap-2">
+                    <input type="text" id="pixCopia" readonly class="glass-input w-full text-xs p-2 rounded text-slate-300">
+                    <button onclick="copyPix()" class="btn-outline px-3 rounded flex items-center justify-center">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-yellow-400 mt-4 text-center animate-pulse"><i class="fa-solid fa-circle-notch fa-spin"></i> Aguardando pagamento...</p>
+                
+                <!-- Mock approve button for Dev Purposes -->
+                <button onclick="devApprovePix()" class="mt-4 text-[10px] text-emerald-400 border border-emerald-500/50 rounded px-2 py-1 hover:bg-emerald-500/20">
+                    [DEV] Simular Pagamento
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // State
+        let currentBalance = 0;
+        let isChecking = false;
+        let statData = { live: 0, die: 0, total: 0 };
+        let currentPaymentDbId = null;
+        let currentPaymentAmount = 0;
+
+        // Elements
+        const balanceDisplay = document.getElementById('balanceDisplay');
+        const cardInput = document.getElementById('cardInput');
+        const linesCount = document.getElementById('linesCount');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const logsPanel = document.getElementById('logsPanel');
+        
+        // Init
+        document.addEventListener('DOMContentLoaded', fetchBalance);
+
+        // Update lines count
+        cardInput.addEventListener('input', () => {
+            const lines = cardInput.value.split('\n').filter(l => l.trim().length > 0);
+            linesCount.textContent = lines.length;
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+             await fetch('/api/auth/logout', { method: 'POST' });
+             window.location.href = '/login';
+        });
+
+        // Fetch Balance
+        async function fetchBalance() {
+            try {
+                const res = await fetch('/api/user/balance');
+                const data = await res.json();
+                if(data.success) {
+                    currentBalance = data.balance;
+                    balanceDisplay.textContent = `R$ ${currentBalance.toFixed(2)}`;
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function appendLog(text, status) {
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString('pt-BR', {hour12: false});
+            
+            let colorCls = 'text-slate-300';
+            if (status === 'LIVE') colorCls = 'live-text font-bold';
+            if (status === 'DIE') colorCls = 'die-text';
+            if (status === 'ERROR') colorCls = 'text-yellow-400';
+            if (status === 'INFO') colorCls = 'text-blue-400';
+
+            // Extract partial card if length allows
+            let displayMsg = text;
+            
+            div.className = `py-1 border-b border-white/5 animate-fade-in ${colorCls}`;
+            div.innerHTML = `<span class="text-slate-500 text-[10px] mr-2">[${time}]</span> ${displayMsg}`;
+            
+            logsPanel.appendChild(div);
+            logsPanel.scrollTop = logsPanel.scrollHeight;
+            
+            // update stats
+            if(status === 'LIVE') { statData.live++; statData.total++; }
+            if(status === 'DIE') { statData.die++; statData.total++; }
+            
+            document.getElementById('statLive').textContent = statData.live;
+            document.getElementById('statDie').textContent = statData.die;
+            document.getElementById('statTested').textContent = statData.total;
+        }
+
+        // Checker Loop
+        startBtn.addEventListener('click', async () => {
+            const lines = cardInput.value.split('\n').filter(l => l.trim().length > 0);
+            if(lines.length === 0) return alert("Insira ao menos um cartão!");
+            if(currentBalance <= 1) return alert("Saldo insuficiente! Adicione crédito.");
+
+            isChecking = true;
+            startBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            cardInput.disabled = true;
+            
+            if(logsPanel.innerHTML.includes("Aguardando")) logsPanel.innerHTML = '';
+            appendLog(`Iniciando teste de ${lines.length} cartões...`, 'INFO');
+
+            for(let i = 0; i < lines.length; i++) {
+                if(!isChecking) break;
+                
+                // Extra check balance
+                if(currentBalance <= 1) {
+                    appendLog("Saldo zerado! Parando checagem...", "ERROR");
+                    break;
+                }
+
+                const cardLine = lines[i];
+                appendLog(`Testando: ${cardLine.substring(0,6)}...`, 'INFO');
+                
+                try {
+                    const res = await fetch('/api/check_card', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({card: cardLine})
+                    });
+                    const data = await res.json();
+                    
+                    if(data.status === 'LIVE') {
+                        appendLog(`[LIVE] ${cardLine}`, 'LIVE');
+                        await fetchBalance(); // atualiza interface com 1 real a menos
+                    } else if (data.status === 'DIE') {
+                        appendLog(`[DIE] ${cardLine} - ${data.message || ''}`, 'DIE');
+                    } else {
+                        appendLog(`Erro: ${data.message}`, 'ERROR');
+                    }
+                } catch(e) {
+                    appendLog(`Erro de conexão com o servidor`, 'ERROR');
+                }
+            }
+
+            isChecking = false;
+            stopBtn.classList.add('hidden');
+            startBtn.classList.remove('hidden');
+            cardInput.disabled = false;
+            appendLog(`Processo finalizado.`, 'INFO');
+        });
+
+        stopBtn.addEventListener('click', () => {
+            isChecking = false;
+            appendLog("Parada manual solicitada...", "INFO");
+        });
+
+        // Modal PIX Logics
+        function openDepositModal() {
+            document.getElementById('depositModal').classList.add('active');
+            document.getElementById('pixForm').classList.remove('hidden');
+            document.getElementById('pixResult').classList.add('hidden');
+        }
+        function closeDepositModal() {
+            document.getElementById('depositModal').classList.remove('active');
+        }
+
+        async function generatePix() {
+            const amount = document.getElementById('depositAmount').value;
+            if(!amount || amount < 10 || amount > 300) return alert("Valor deve ser entre R$ 10 e R$ 300.");
+
+            try {
+                const res = await fetch('/api/deposit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({amount})
+                });
+                const data = await res.json();
+                
+                if(data.success) {
+                    document.getElementById('pixForm').classList.add('hidden');
+                    document.getElementById('pixResult').classList.remove('hidden');
+                    
+                    document.getElementById('qrCodeImg').src = data.qr_code_url;
+                    document.getElementById('pixCopia').value = data.pix_code;
+                    currentPaymentDbId = data.db_id;
+                    currentPaymentAmount = data.amount;
+                } else {
+                    alert(data.message);
+                }
+            } catch(e) { alert("Erro ao gerar pix."); }
+        }
+
+        function copyPix() {
+            const input = document.getElementById('pixCopia');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value);
+            alert("Pix copiado!");
+        }
+
+        // DEV APENAS: Para o usuário testar o fluxo completo
+        async function devApprovePix() {
+            if(!currentPaymentDbId) return;
+            try {
+                const res = await fetch('/api/deposit/dev-approve', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ db_id: currentPaymentDbId, amount: currentPaymentAmount })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert("Pagamento Aprovado com Sucesso!");
+                    closeDepositModal();
+                    fetchBalance();
+                } else {
+                    alert(data.message);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+    </script>
+</body>
+</html>
