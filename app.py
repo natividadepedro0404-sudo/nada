@@ -108,7 +108,7 @@ def create_deposit():
             "payerDocument": "00000000000",
             "transactionId": transaction_id,
             "description": "Adicionar Saldo",
-            "projectWebhook": os.environ.get("WEBHOOK_URL", "https://yourdomain.com/api/webhook/misticpay")
+            "projectWebhook": os.environ.get("WEBHOOK_URL", "https://nada-five-nu.vercel.app/api/webhook/misticpay")
         }
         
         url = f"{MISTICPAY_API_URL}/transactions/create"
